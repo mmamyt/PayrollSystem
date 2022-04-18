@@ -1,6 +1,15 @@
 package payslip_generator;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -8,8 +17,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.Scanner;
 import javax.swing.*;
+
 
 class payroll_data {
 	int id;
@@ -18,8 +27,8 @@ class payroll_data {
     String role;
     Double sal;
     String dep;
-    int ssn;
     String email;
+    String address;
     
 }
 
@@ -29,6 +38,8 @@ public class payslip_generator extends JFrame implements ActionListener {
 	private JButton addBTN = new JButton("ADD");
 	private JButton generateBTN = new JButton("Generate Payslip for all");
 	private payroll_data[] payslipdata;
+	private String payperiod;
+	private Long Num_weeks;
 	
 	public static void main(String[] args) {
 		new payslip_generator();		
@@ -42,7 +53,7 @@ public class payslip_generator extends JFrame implements ActionListener {
 		GridBagConstraints c = new GridBagConstraints();
 		c.insets = new Insets(10,10,10,10);
 		cp.setLayout(new BorderLayout());
-		setMinimumSize(new Dimension(400,400));
+		setMinimumSize(new Dimension(700,450));
 		setLocationByPlatform(true);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		JLabel payperiodinfo = new JLabel("Use format (YYYY-MM-DD:YYYY-MM-DD)");
@@ -61,24 +72,24 @@ public class payslip_generator extends JFrame implements ActionListener {
 		c.gridx = 3;
 		c.gridy = 0;
 		c.ipady = 20;
-		JButton addb = new JButton("ADD");
-	
-		addb.addActionListener(new ActionListener(){
-			String payperiod;
+		addBTN = new JButton("ADD");
+		
+		addBTN.addActionListener(new ActionListener(){
 		            public void actionPerformed(ActionEvent e){
 		            	String pay_period = payperiodText.getText();
 		            	payperiodText.setText("");
 		            	payperiod = pay_period;
 		            	Long numweeks = calculatepayperiod(payperiod);
+		            	Num_weeks = numweeks;
 		            	System.out.println(numweeks);
 		            }});
     	
-		bodyPanel.add(addb, c);
+		bodyPanel.add(addBTN, c);
 		c.weightx = 0.5;
 		c.gridx = 2;
 		c.gridy = 2;
 		c.gridwidth = 2;
-		JButton generateBTN = new JButton("Generate Payslip for all");
+		generateBTN = new JButton("Generate Payslip for all");
 		generateBTN.addActionListener(new ActionListener(){
 		            public void actionPerformed(ActionEvent e){
 		            }});
@@ -100,7 +111,6 @@ public class payslip_generator extends JFrame implements ActionListener {
 		payslip_generator connect1=new payslip_generator();
         payslipdata = new payroll_data[100];
 		try {
-			Scanner sc = new Scanner(System.in);
 			Connection c1 = connect1.getConnection();
 			System.out.println("Connection to SQLite has been established");
 			Statement s1 = c1.createStatement();
@@ -113,16 +123,16 @@ public class payslip_generator extends JFrame implements ActionListener {
 		         String role = rs.getString("Role");
 		         Double sal  = rs.getDouble("Salary");
 		         String dep = rs.getString("Department");
-		         int ssn = rs.getInt("SSN");
+		         String add = rs.getString("Address");
 		         String email = rs.getString("Email");
 		         payroll_data payroll = new payroll_data();
 		         payroll.id = id;
+		         payroll.address = add;
 		         payroll.f_name = f_name;
 		         payroll.l_name = l_name;
 		         payroll.role = role;
 		         payroll.sal = sal;
 		         payroll.dep = dep;
-		         payroll.ssn = ssn;
 		         payroll.email = email;
 		         payslipdata[i] = payroll;
 		         System.out.println( "ID = " + id);
@@ -131,7 +141,6 @@ public class payslip_generator extends JFrame implements ActionListener {
 		         System.out.println( "Role = " + role);
 		         System.out.println( "Salary = " + sal);
 		         System.out.println( "Department = " + dep);
-		         System.out.println( "SSN = " + ssn);
 		         System.out.println( "Email = " + email);
 		         System.out.println(i);
 		         i++;
@@ -147,7 +156,7 @@ public class payslip_generator extends JFrame implements ActionListener {
 
 	}
 	private Connection getConnection() throws SQLException {
-		String dbUrl = "jdbc:sqlite:";
+		String dbUrl = "jdbc:sqlite:C:\\SQLiteStudio\\PayrollSystem";
 		Connection connection=DriverManager.getConnection(dbUrl);
 		return connection;
 	}
@@ -160,5 +169,54 @@ public class payslip_generator extends JFrame implements ActionListener {
 		long noOfWeeksBetween = ChronoUnit.WEEKS.between(dateBefore, dateAfter);
 		return noOfWeeksBetween;
 	}
-
+	void Writepayslip(payroll_data[] param) throws IOException {
+		int i = 0;
+		do {
+		Path currentRelativePath = Paths.get("");
+		String s = currentRelativePath.toAbsolutePath().toString();
+		System.out.println("Current relative path is: " + s);
+		String dirString=s+"/data";
+		Path dirPath=Paths.get(dirString);
+		if (Files.notExists(dirPath)){
+		Files.createDirectories(dirPath);
+		}
+		
+		String fileString= param[i].l_name + param[i].f_name + "Payslip.txt";
+		Path filePath=Paths.get(dirString,fileString);
+		if (Files.notExists(filePath)){
+			Files.createFile(filePath);
+		}
+		if (Files.exists(dirPath)&&Files.isDirectory(dirPath)){
+			System.out.println("Directory: "
+					+dirPath.toAbsolutePath());
+			System.out.println("Files: ");
+			DirectoryStream<Path> dirStream=
+					Files.newDirectoryStream(dirPath);
+			for (Path p:dirStream){
+				System.out.println("    "+p.getFileName());
+			}
+		}
+		Path payslipPath=Paths.get(dirString, fileString);
+		File payslipFile=payslipPath.toFile();
+		System.out.println(payslipFile);
+		PrintWriter accwriter=new PrintWriter(
+				new BufferedWriter(
+				new FileWriter(payslipFile)));
+		accwriter.println("");
+		accwriter.println("Company: Disney Gold Mining and Co");
+		accwriter.println("12345 Mainstreet, Chicago IL");
+		accwriter.println("");
+		accwriter.println("Payslip for: " + param[i].f_name + " " + param[i].l_name);
+		accwriter.println("Role: " + param[i].role);
+		accwriter.println("Address: " + param[i].address);
+		accwriter.println("");
+		accwriter.println("Pay Period for the following dates: " + payperiod);
+		accwriter.println("Pay Type: BiWeekly");
+		accwriter.println("Salary to be paid: " + param[i].sal * (Num_weeks/2) + "Gold Nuggets");
+		accwriter.println("");
+	accwriter.close();
+	i++;
+	}
+		while (param[i] != null);
+	}
 	}
